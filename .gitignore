@@ -150,3 +150,6 @@ Thumbs.db
 
 # data
 data/
+
+# ChromaDB vector database
+vectordb/

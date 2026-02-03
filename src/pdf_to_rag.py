@@ -22,7 +22,9 @@ from typing import List, Dict, Any
 # Uncomment and set your desired path to store models in a custom location
 # os.environ['HF_HOME'] = '/Volumes/Extreme SSD/huggingface'
 
-from docling.document_converter import DocumentConverter
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions, TableFormerMode
 
 
 def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
@@ -63,7 +65,7 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[st
     return chunks
 
 
-def extract_rag_chunks(pdf_path: str, chunk_size: int = 1000, overlap: int = 200) -> List[Dict[str, Any]]:
+def extract_rag_chunks(pdf_path: str, chunk_size: int = 1000, overlap: int = 200, include_tables: bool = False) -> List[Dict[str, Any]]:
     """
     Extract content from PDF and prepare chunks for RAG ingestion.
     
@@ -71,12 +73,26 @@ def extract_rag_chunks(pdf_path: str, chunk_size: int = 1000, overlap: int = 200
         pdf_path: Path to the input PDF file
         chunk_size: Maximum size of each chunk in characters
         overlap: Number of characters to overlap between chunks
+        include_tables: Whether to enable table structure recognition
         
     Returns:
         List of chunks with text and metadata
     """
-    # Initialize converter
-    converter = DocumentConverter()
+    # Initialize converter with table extraction if requested
+    if include_tables:
+        pipeline_options = PdfPipelineOptions()
+        pipeline_options.do_table_structure = True
+        pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
+        
+        converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    pipeline_options=pipeline_options
+                )
+            }
+        )
+    else:
+        converter = DocumentConverter()
     
     print(f"Converting {pdf_path}...")
     result = converter.convert(pdf_path)
@@ -87,12 +103,19 @@ def extract_rag_chunks(pdf_path: str, chunk_size: int = 1000, overlap: int = 200
     
     # Process document structure to create meaningful chunks
     for item, level in doc.iterate_items():
-        # Skip items without text attribute (like tables)
-        if not hasattr(item, 'text'):
-            continue
-            
-        # Skip empty items
-        if not item.text or not item.text.strip():
+        # Get text content - use markdown export for tables and other items without text
+        item_text = None
+        if hasattr(item, 'text') and item.text:
+            item_text = item.text
+        elif hasattr(item, 'export_to_markdown'):
+            try:
+                item_text = item.export_to_markdown(doc)
+            except:
+                # Skip items that can't be converted to text
+                continue
+        
+        # Skip items without content
+        if not item_text or not item_text.strip():
             continue
         
         # Determine content type
@@ -107,8 +130,8 @@ def extract_rag_chunks(pdf_path: str, chunk_size: int = 1000, overlap: int = 200
                     break
         
         # For long content, split into chunks
-        if len(item.text) > chunk_size:
-            text_chunks = chunk_text(item.text, chunk_size, overlap)
+        if len(item_text) > chunk_size:
+            text_chunks = chunk_text(item_text, chunk_size, overlap)
             for i, text_chunk in enumerate(text_chunks):
                 chunk_id += 1
                 chunks.append({
@@ -128,7 +151,7 @@ def extract_rag_chunks(pdf_path: str, chunk_size: int = 1000, overlap: int = 200
             chunk_id += 1
             chunks.append({
                 "chunk_id": chunk_id,
-                "text": item.text.strip(),
+                "text": item_text.strip(),
                 "metadata": {
                     "source": Path(pdf_path).name,
                     "content_type": content_type,
@@ -152,7 +175,18 @@ def extract_tables_for_rag(pdf_path: str) -> List[Dict[str, Any]]:
     Returns:
         List of table chunks with structured data
     """
-    converter = DocumentConverter()
+    # Configure converter with table extraction enabled
+    pipeline_options = PdfPipelineOptions()
+    pipeline_options.do_table_structure = True
+    pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
+    
+    converter = DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_options=pipeline_options
+            )
+        }
+    )
     result = converter.convert(pdf_path)
     doc = result.document
     
@@ -171,8 +205,11 @@ def extract_tables_for_rag(pdf_path: str) -> List[Dict[str, Any]]:
                         page_num = prov.page_no
                         break
             
-            # Extract table as text representation
-            table_text = item.text if hasattr(item, 'text') else str(item)
+            # Extract table as text representation using markdown export
+            try:
+                table_text = item.export_to_markdown(doc) if hasattr(item, 'export_to_markdown') else str(item)
+            except:
+                table_text = str(item)
             
             table_chunks.append({
                 "chunk_id": f"table_{table_id}",
@@ -248,7 +285,7 @@ def main():
     
     try:
         # Extract content chunks
-        chunks = extract_rag_chunks(pdf_path, chunk_size, overlap)
+        chunks = extract_rag_chunks(pdf_path, chunk_size, overlap, include_tables)
         
         # Extract tables if requested
         if include_tables:

@@ -90,12 +90,12 @@ def prepare_chunk_data(
         
         # Prepare metadata (ChromaDB requires flat dict with simple types)
         metadata = {
-            'source': chunk['metadata']['source'],
+            'source': chunk['metadata'].get('source', 'unknown'),
             'content_type': content_type,
             'page': chunk['metadata'].get('page', 0) or 0,  # Handle None
-            'chunk_index': chunk['metadata']['chunk_index'],
-            'total_chunks': chunk['metadata']['total_chunks'],
-            'is_partial': chunk['metadata']['is_partial'],
+            'chunk_index': chunk['metadata'].get('chunk_index', 0),
+            'total_chunks': chunk['metadata'].get('total_chunks', 1),
+            'is_partial': chunk['metadata'].get('is_partial', False),
             # Computed fields
             'is_table': content_type in ChromaDBConfig.TABLE_CONTENT_TYPES,
             'char_count': len(text),

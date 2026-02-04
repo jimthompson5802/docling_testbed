@@ -129,8 +129,8 @@ def extract_rag_chunks(pdf_path: str, chunk_size: int = 1000, overlap: int = 200
                     page_num = prov.page_no
                     break
         
-        # For long content, split into chunks
-        if len(item_text) > chunk_size:
+        # For long content, split into chunks (but keep tables intact)
+        if len(item_text) > chunk_size and content_type != 'table':
             text_chunks = chunk_text(item_text, chunk_size, overlap)
             for i, text_chunk in enumerate(text_chunks):
                 chunk_id += 1

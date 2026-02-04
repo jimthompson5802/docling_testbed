@@ -242,7 +242,7 @@ def format_results(results: Dict[str, Any], show_full: bool = False) -> None:
             preview = doc[:300] + "..." if len(doc) > 300 else doc
             print(preview)
         
-        print("-" * 80)
+        print("<" * 40 + ">" * 40)
 
 
 def main():

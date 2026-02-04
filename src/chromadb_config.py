@@ -15,6 +15,8 @@ class ChromaDBConfig:
     # Database settings
     PERSIST_DIRECTORY: str = "./vectordb"
     COLLECTION_NAME: str = "docling_rag_chunks"
+    # PERSIST_DIRECTORY: str = "/Users/jim/Desktop/genai/open-webui/venv/lib/python3.11/site-packages/open_webui/data/vector_db"
+    # COLLECTION_NAME: str = "knowledge-bases"
     
     # Embedding model settings
     EMBEDDING_MODEL: str = "sentence-transformers/all-mpnet-base-v2"

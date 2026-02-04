@@ -48,6 +48,7 @@ class ChromaDBQuerier:
             persist_directory: Path to ChromaDB persistence directory
         """
         self.config = ChromaDBConfig()
+        print(f"Config '{self.config.PERSIST_DIRECTORY}, {self.config.COLLECTION_NAME}'")
         
         if collection_name:
             self.config.COLLECTION_NAME = collection_name
@@ -177,6 +178,16 @@ class ChromaDBQuerier:
         
         return self.similarity_search(query, n_results, where=where_filter)
     
+    def list_collections(self) -> List[str]:
+        """
+        List all collections in the ChromaDB database.
+        
+        Returns:
+            List of collection names
+        """
+        collections = self.client.list_collections()
+        return [col.name for col in collections]
+    
     def get_collection_stats(self) -> Dict[str, Any]:
         """
         Get statistics about the collection.
@@ -252,6 +263,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # List all collections
+  python src/query_chromadb.py --list
+  
   # Basic search
   python src/query_chromadb.py "revenue growth"
   
@@ -319,16 +333,37 @@ Examples:
         action='store_true',
         help='Show collection statistics'
     )
+    parser.add_argument(
+        '--list',
+        action='store_true',
+        help='List all collections in the database'
+    )
     
     args = parser.parse_args()
     
     # Validate arguments
-    if not args.stats and not args.query:
-        parser.error("Query text is required unless --stats is specified")
+    if not args.stats and not args.list and not args.query:
+        parser.error("Query text is required unless --stats or --list is specified")
     
     try:
         # Initialize querier
         querier = ChromaDBQuerier(collection_name=args.collection)
+        
+        if args.list:
+            # List all collections
+            print("Collections in ChromaDB:")
+            print("=" * 80)
+            try:
+                collections = querier.list_collections()
+                if collections:
+                    for i, col_name in enumerate(collections, 1):
+                        current = " (current)" if col_name == querier.config.COLLECTION_NAME else ""
+                        print(f"{i}. {col_name}{current}")
+                else:
+                    print("No collections found.")
+            except Exception as e:
+                print(f"Error listing collections: {e}")
+            return
         
         if args.stats:
             # Show statistics

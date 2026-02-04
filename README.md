@@ -250,11 +250,13 @@ The `pdf_to_rag.py` script generates JSON with:
 - Preserves sentence boundaries
 - Configurable overlap for context retention
 - Metadata for filtering and retrieval
+- **Tables always kept as single chunks** to preserve structural integrity
 
 ### Table Extraction
 - Accurate table structure recognition
 - Markdown format conversion
 - Preserves cell relationships
+- Tables never split across multiple chunks, regardless of size
 
 ### Metadata Enrichment
 - Page numbers for source tracking
